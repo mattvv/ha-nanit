@@ -538,16 +538,47 @@ class NanitCameraEntity(NanitEntity, Camera):
         await self._async_fetch_snapshot()
 
     async def _async_fetch_snapshot(self) -> bytes | None:
-        """Fetch a snapshot from the cloud and update the cache."""
+        """Fetch a snapshot and update the cache.
+
+        Tries the cloud snapshot first. For these cameras the cloud has none (404
+        not-found), which leaves tiles blank, so fall back to a keyframe from a stream
+        (started if needed).
+        """
+        image: bytes | None = None
         try:
             image = await self._camera.async_get_snapshot()
         except Exception:  # noqa: BLE001
-            _LOGGER.debug("Failed to fetch snapshot for %s", self._camera.uid)
-            return None
+            _LOGGER.debug("Failed to fetch cloud snapshot for %s", self._camera.uid)
+        if image is None:
+            image = await self._async_stream_snapshot()
         if image is not None:
             self._cached_snapshot = image
             self._cached_snapshot_at = time.monotonic()
         return image
+
+    async def _async_stream_snapshot(self) -> bytes | None:
+        """Return a still from the camera's stream, starting the stream if needed.
+
+        Deliberately starts streaming for a thumbnail (Matt's choice, 2026-10-09 - upstream
+        PR wealthystudent/ha-nanit#171 was closed because the maintainer does not want that
+        as a default). Kept from the review: skip offline/sleeping cameras, and if an old
+        stream has stopped, re-send PUT_STREAMING via stream_source() before restarting it
+        so it doesn't loop on a lapsed push.
+        """
+        if not self.available or not self.is_on:
+            return None
+        try:
+            stream = self.stream
+            if stream is None:
+                stream = await self.async_create_stream()
+            elif not stream.outputs():
+                await self.stream_source()
+            if stream is None:
+                return None
+            return await stream.async_get_image(wait_for_next_keyframe=False)
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Failed to get a stream still for %s", self._camera.uid)
+            return None
 
     # ------------------------------------------------------------------
     # On/off

@@ -13,16 +13,16 @@
     "lovelace",
     "stream"
   ],
-  "documentation": "https://github.com/wealthystudent/ha-nanit",
+  "documentation": "https://github.com/mattvv/ha-nanit",
   "integration_type": "hub",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/wealthystudent/ha-nanit/issues",
+  "issue_tracker": "https://github.com/mattvv/ha-nanit/issues",
   "loggers": [
     "custom_components.nanit",
     "aionanit"
   ],
   "requirements": [
-    "aionanit==0.0.0"
+    "aionanit==1.12.4"
   ],
-  "version": "0.0.0"
+  "version": "1.12.4.1"
 }
